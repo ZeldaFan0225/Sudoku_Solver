@@ -154,7 +154,7 @@ function hasAllNumbers(numbers_set) {
     return (numbers_set.slice().sort().join(",") === "1,2,3,4,5,6,7,8,9")
 }
 
-function findOutPossibleNumbers(matrix, x, y) {
+function findOutPossibleNumbers(matrix, x, y, allow_branching) {
     if(matrix[y][x]) return matrix[y][x];
     x_inside_block = x%3
     y_inside_block = y%3
@@ -177,6 +177,7 @@ function findOutPossibleNumbers(matrix, x, y) {
                 other_col_2
             ].every(s => s.includes(num))
         })
+        if(allow_branching && possible.length > 1 && !matches.length) return possible
         return matches.length === 1 ? matches[0] : 0
     }
 }
@@ -184,16 +185,39 @@ function findOutPossibleNumbers(matrix, x, y) {
 function solveSudoku(matrix) {
     let s = matrix.slice()
     let unsolved = true
+    let history = []
+    let allow_branching = false
+    fuerstenberger:
     while(unsolved) {
         for(let y = 0; y < 9; ++y) { 
             for(let x = 0; x < 9; ++x) {
-                if(!s[y][x]) s[y][x] = findOutPossibleNumbers(s, x, y)
+                if(!s[y][x]) {
+                    const possible = findOutPossibleNumbers(s, x, y, allow_branching)
+                    if(allow_branching && Array.isArray(possible)) {
+                        for(let num of possible) {
+                            const m = s.slice()
+                            m[y][x] = num
+                            const res = solveSudoku(m)
+                            if(res) {
+                                s = res;
+                                break fuerstenberger;
+                            }
+                        }
+                    }
+                    else s[y][x] = possible
+                }
             }
         }
-        console.log(s)
-        if(verifySudoku(s.slice())) unsolved = false
+        
+        if(verifySudoku(s.slice())) {
+            unsolved = false;
+            break;
+        }
+        if(allow_branching) break;
+        if(history.length >= 10 && printSudoku(s) === printSudoku(history[history.length-10])) allow_branching = true
+        history.push(s.slice())
     }
-    return s
+    return verifySudoku(s) ? s : undefined
 }
 
 function printSudoku(matrix) {
@@ -201,8 +225,15 @@ function printSudoku(matrix) {
 }
 
 //console.log(verifySudoku(test4_solution))
-const solved = solveSudoku(test4)
+const solved = solveSudoku(extreme, true)
 
-console.log(printSudoku(solved))
-console.log(printSudoku(test4_solution))
-console.log(printSudoku(test4) === printSudoku(test4_solution))
+console.log(printSudoku(extreme_solution))
+console.log(printSudoku(extreme))
+console.log(printSudoku(extreme) === printSudoku(extreme_solution))
+
+
+/*const solved = solveSudoku(hard)
+
+console.log(printSudoku(hard_solution))
+console.log(printSudoku(hard))
+console.log(printSudoku(hard) === printSudoku(hard_solution))*/
