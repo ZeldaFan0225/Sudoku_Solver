@@ -168,21 +168,16 @@ function findOutPossibleNumbers(matrix, x, y, allow_branching) {
         const other_row_2 = getRow(matrix, y + (!y_inside_block ? 2 : y_inside_block === 1 ? 1 : -1))
         const other_col_1 = getColumn(matrix, x + (!x_inside_block ? 1 : x_inside_block === 1 ? -1 : -2))
         const other_col_2 = getColumn(matrix, x + (!x_inside_block ? 2 : x_inside_block === 1 ? 1 : -1))
-        // add check that if only one other row has the number and the other cell is not null
-        /*
 
-         -> 0 1 0 <- check if this row has 7 or 6 and see that the middle one is blocked
-            2 3 4
-            5 9 8
-
-        */
         const matches = possible.filter(num => {
-            return [
+            const cond_1 = [
                 other_row_1,
                 other_row_2,
                 other_col_1,
                 other_col_2
             ].every(s => s.includes(num))
+            const cond_2 = ((other_row_1.includes(num) && matrix[y + (!y_inside_block ? 2 : y_inside_block === 1 ? 1 : -1)][x]) || (other_row_2.includes(num) && matrix[y + (!y_inside_block ? 2 : y_inside_block === 1 ? 1 : -1)][x])) && ((other_col_1.includes(num) && matrix[y][x + (!x_inside_block ? 2 : x_inside_block === 1 ? 1 : -1)]) || (other_col_2.includes(num) && matrix[y][x + (!x_inside_block ? 2 : x_inside_block === 1 ? 1 : -1)]))
+            return cond_1 || cond_2
         })
         if(allow_branching && possible.length > 1 && !matches.length) return possible
         return matches.length === 1 ? matches[0] : 0
@@ -192,15 +187,15 @@ function findOutPossibleNumbers(matrix, x, y, allow_branching) {
 function solveSudoku(matrix) {
     let s = matrix.slice()
     let unsolved = true
-    let history = []
+    /*let history = []
     let allow_branching = false
-    fuerstenberger:
+    fuerstenberger:*/
     while(unsolved) {
         for(let y = 0; y < 9; ++y) { 
             for(let x = 0; x < 9; ++x) {
                 if(!s[y][x]) {
-                    const possible = findOutPossibleNumbers(s, x, y, allow_branching)
-                    if(allow_branching && Array.isArray(possible)) {
+                    const possible = findOutPossibleNumbers(s, x, y/*, allow_branching*/)
+                    /*if(allow_branching && Array.isArray(possible)) {
                         for(let num of possible) {
                             const m = s.slice()
                             m[y][x] = num
@@ -211,7 +206,7 @@ function solveSudoku(matrix) {
                             }
                         }
                     }
-                    else s[y][x] = possible
+                    else*/ s[y][x] = possible
                 }
             }
         }
@@ -220,9 +215,9 @@ function solveSudoku(matrix) {
             unsolved = false;
             break;
         }
-        if(allow_branching) break;
-        if(history.length >= 10 && printSudoku(s) === printSudoku(history[history.length-10])) allow_branching = true
-        history.push(s.slice())
+        //if(allow_branching) break;
+        //if(history.length >= 10 && printSudoku(s) === printSudoku(history[history.length-10])) allow_branching = true
+        //history.push(s.slice())
     }
     return verifySudoku(s) ? s : undefined
 }
@@ -232,15 +227,15 @@ function printSudoku(matrix) {
 }
 
 //console.log(verifySudoku(test4_solution))
-const solved = solveSudoku(extreme, true)
+/*const solved = solveSudoku(extreme, true)
 
 console.log(printSudoku(extreme_solution))
 console.log(printSudoku(extreme))
-console.log(printSudoku(extreme) === printSudoku(extreme_solution))
+console.log(printSudoku(extreme) === printSudoku(extreme_solution))*/
 
 
-/*const solved = solveSudoku(hard)
+const solved = solveSudoku(hard)
 
 console.log(printSudoku(hard_solution))
 console.log(printSudoku(hard))
-console.log(printSudoku(hard) === printSudoku(hard_solution))*/
+console.log(printSudoku(hard) === printSudoku(hard_solution))
