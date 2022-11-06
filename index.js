@@ -168,7 +168,14 @@ function findOutPossibleNumbers(matrix, x, y, allow_branching) {
         const other_row_2 = getRow(matrix, y + (!y_inside_block ? 2 : y_inside_block === 1 ? 1 : -1))
         const other_col_1 = getColumn(matrix, x + (!x_inside_block ? 1 : x_inside_block === 1 ? -1 : -2))
         const other_col_2 = getColumn(matrix, x + (!x_inside_block ? 2 : x_inside_block === 1 ? 1 : -1))
-        // if no match is found try solving the sudoku with an assumption and see if it works out
+        // add check that if only one other row has the number and the other cell is not null
+        /*
+
+         -> 0 1 0 <- check if this row has 7 or 6 and see that the middle one is blocked
+            2 3 4
+            5 9 8
+
+        */
         const matches = possible.filter(num => {
             return [
                 other_row_1,
