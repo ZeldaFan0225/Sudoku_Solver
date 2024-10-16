@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sudoku Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+        }
+        .sudoku-grid {
+            display: inline-grid;
+            grid-template-columns: repeat(9, 40px);
+            gap: 2px;
+            background-color: #000;
+            margin-bottom: 20px;
+            padding: 2px;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .cell input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            height: 100%;
+            width: 100%;
+            padding: 0;
+        }
+        .row {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background-color: #000;
+            gap: 2px;
+        }
+        button {
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 0 10px;
+            cursor: pointer;
+        }
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .speed-control {
+            margin-top: 20px;
+        }
+        #speedSlider {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sudoku-grid" id="sudokuGrid"></div>
+        <div>
+            <button id="startBtn">Start Solving</button>
+            <button id="stepBtn" disabled>Next Step</button>
+            <button id="autoPlayBtn" disabled>Auto Play</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        <div class="speed-control">
+            <label for="speedSlider">Speed:</label>
+            <input type="range" id="speedSlider" min="1" max="1000" value="5">
+            <span id="speedValue">500ms</span>
+        </div>
+        <div id="message"></div>
+    </div>
+    <script>
+        const grid = document.getElementById('sudokuGrid');
+        const startBtn = document.getElementById('startBtn');
+        const stepBtn = document.getElementById('stepBtn');
+        const autoPlayBtn = document.getElementById('autoPlayBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const message = document.getElementById('message');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+
+        let sudoku = [
+            [5, 3, 0, 0, 7, 0, 0, 0, 0],
+            [6, 0, 0, 1, 9, 5, 0, 0, 0],
+            [0, 9, 8, 0, 0, 0, 0, 6, 0],
+            [8, 0, 0, 0, 6, 0, 0, 0, 3],
+            [4, 0, 0, 8, 0, 3, 0, 0, 1],
+            [7, 0, 0, 0, 2, 0, 0, 0, 6],
+            [0, 6, 0, 0, 0, 0, 2, 8, 0],
+            [0, 0, 0, 4, 1, 9, 0, 0, 5],
+            [0, 0, 0, 0, 8, 0, 0, 7, 9]
+        ];
+
+        let originalSudoku = JSON.parse(JSON.stringify(sudoku));
+        let solving = false;
+        let autoPlaying = false;
+        let solveInterval;
+        let stack = [];
+
+        function createGrid() {
+            for (let i = 0; i < 9; i++) {
+                const row = document.createElement('div');
+                row.className = 'row';
+                for (let j = 0; j < 9; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.min = '1';
+                    input.max = '9';
+                    input.value = sudoku[i][j] || '';
+                    input.addEventListener('input', (e) => {
+                        if (e.target.value.length > 1) {
+                            e.target.value = e.target.value.slice(0, 1);
+                        }
+                        sudoku[i][j] = parseInt(e.target.value) || 0;
+                    });
+                    cell.appendChild(input);
+                    row.appendChild(cell);
+                }
+                grid.appendChild(row);
+            }
+        }
+
+        function lockInputs() {
+            const inputs = document.querySelectorAll('.cell input');
+            inputs.forEach(input => input.disabled = true);
+        }
+
+        function unlockInputs() {
+            const inputs = document.querySelectorAll('.cell input');
+            inputs.forEach(input => input.disabled = false);
+        }
+
+        function updateGrid() {
+            const cells = document.querySelectorAll('.cell input');
+            cells.forEach((cell, index) => {
+                const i = Math.floor(index / 9);
+                const j = index % 9;
+                cell.value = sudoku[i][j] || '';
+            });
+        }
+
+        function findEmptyCell(matrix) {
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    if (matrix[i][j] === 0) return [i, j];
+                }
+            }
+            return null;
+        }
+
+        function isValid(matrix, num, pos) {
+            const [row, col] = pos;
+
+            // Check row
+            for (let j = 0; j < 9; j++) {
+                if (matrix[row][j] === num && col !== j) return false;
+            }
+
+            // Check column
+            for (let i = 0; i < 9; i++) {
+                if (matrix[i][col] === num && row !== i) return false;
+            }
+
+            // Check 3x3 box
+            const boxRow = Math.floor(row / 3) * 3;
+            const boxCol = Math.floor(col / 3) * 3;
+            for (let i = boxRow; i < boxRow + 3; i++) {
+                for (let j = boxCol; j < boxCol + 3; j++) {
+                    if (matrix[i][j] === num && (i !== row || j !== col)) return false;
+                }
+            }
+
+            return true;
+        }
+
+        function solveStep() {
+            if (stack.length === 0) {
+                const emptyCell = findEmptyCell(sudoku);
+                if (!emptyCell) {
+                    message.textContent = "Sudoku solved!";
+                    solving = false;
+                    autoPlaying = false;
+                    stepBtn.disabled = true;
+                    autoPlayBtn.textContent = "Auto Play";
+                    clearInterval(solveInterval);
+                    return false;
+                }
+                stack.push({cell: emptyCell, num: 0});
+            }
+
+            let {cell, num} = stack[stack.length - 1];
+            let [row, col] = cell;
+
+            while (num < 9) {
+                num++;
+                if (isValid(sudoku, num, cell)) {
+                    sudoku[row][col] = num;
+                    stack[stack.length - 1].num = num;
+                    updateGrid();
+                    message.textContent = `Placed ${num} at row ${row + 1}, column ${col + 1}`;
+
+                    const nextEmptyCell = findEmptyCell(sudoku);
+                    if (nextEmptyCell) {
+                        stack.push({cell: nextEmptyCell, num: 0});
+                    } else {
+                        message.textContent = "Sudoku solved!";
+                        solving = false;
+                        autoPlaying = false;
+                        stepBtn.disabled = true;
+                        autoPlayBtn.textContent = "Auto Play";
+                        clearInterval(solveInterval);
+                        return false;
+                    }
+                    return true;
+                }
+            }
+
+            // Backtrack
+            sudoku[row][col] = 0;
+            stack.pop();
+            updateGrid();
+            message.textContent = "Backtracking...";
+            return stack.length > 0;
+        }
+
+        function toggleAutoPlay() {
+            autoPlaying = !autoPlaying;
+            if (autoPlaying) {
+                autoPlayBtn.textContent = "Pause";
+                solveInterval = setInterval(() => {
+                    if (!solveStep()) {
+                        clearInterval(solveInterval);
+                        autoPlayBtn.textContent = "Auto Play";
+                        autoPlaying = false;
+                    }
+                }, 1000 / speedSlider.value);
+            } else {
+                clearInterval(solveInterval);
+                autoPlayBtn.textContent = "Resume";
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            lockInputs();
+            solving = true;
+            stepBtn.disabled = false;
+            autoPlayBtn.disabled = false;
+            message.textContent = "Solving started. Click 'Next Step' to proceed or 'Auto Play' for continuous solving.";
+        });
+
+        stepBtn.addEventListener('click', () => {
+            if (solving) {
+                solveStep();
+            }
+        });
+
+        autoPlayBtn.addEventListener('click', toggleAutoPlay);
+
+        resetBtn.addEventListener('click', () => {
+            sudoku = JSON.parse(JSON.stringify(originalSudoku));
+            stack = [];
+            updateGrid();
+            unlockInputs();
+            solving = false;
+            autoPlaying = false;
+            stepBtn.disabled = true;
+            autoPlayBtn.disabled = true;
+            autoPlayBtn.textContent = "Auto Play";
+            clearInterval(solveInterval);
+            message.textContent = "";
+        });
+
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = `${1000 / speedSlider.value}ms`;
+            if (autoPlaying) {
+                clearInterval(solveInterval);
+                solveInterval = setInterval(() => {
+                    if (!solveStep()) {
+                        clearInterval(solveInterval);
+                        autoPlayBtn.textContent = "Auto Play";
+                        autoPlaying = false;
+                    }
+                }, 1000 / speedSlider.value);
+            }
+        });
+
+        createGrid();
+    </script>
+</body>
+</html>
